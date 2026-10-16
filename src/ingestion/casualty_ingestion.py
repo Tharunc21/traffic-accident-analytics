@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
-
+import os
 from ingestion_utils import (
     append_ingestion_log,
     calculate_file_hash,
