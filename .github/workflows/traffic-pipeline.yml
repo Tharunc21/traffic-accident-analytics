@@ -74,6 +74,24 @@ jobs:
           COLLISIONS_SOURCE_FILE: ${{ runner.temp }}/traffic-data/collisions.csv
         run: python src/ingestion/accident_ingestion.py
 
+      - name: Debug vehicle ingestion imports
+        run: |
+          echo "Commit being tested:"
+          git log -1 --oneline
+
+          echo "Vehicle ingestion source:"
+          head -n 30 src/ingestion/vehicle_ingestion.py
+
+          echo "Python interpreter:"
+          which python
+          python --version
+
+          echo "Testing standard library import:"
+          python -c "import os; print('os module:', os.__file__)"
+
+          echo "Compiling vehicle ingestion:"
+          python -m py_compile src/ingestion/vehicle_ingestion.py
+
       - name: Ingest vehicles
         env:
           VEHICLES_SOURCE_FILE: ${{ runner.temp }}/traffic-data/vehicles.csv
