@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS cleaned.casualties (
     collision_index VARCHAR(50) NOT NULL,
     collision_year INTEGER NOT NULL,
     collision_ref_no VARCHAR(50),
-
+    escooter_flag INTEGER,
     vehicle_reference INTEGER NOT NULL,
     casualty_reference INTEGER NOT NULL,
 
