@@ -1,0 +1,19 @@
+﻿.env
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+
+# Downloaded and generated datasets
+data/raw/
+data/staging/
+data/processed/
+data/rejected/
+
+# Logs and generated reports
+logs/
+reports/
+
+# Local IDE files
+.vscode/

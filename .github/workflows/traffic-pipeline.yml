@@ -1,0 +1,130 @@
+﻿name: Traffic Accident Data Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "sql/**"
+      - "requirements-pipeline.txt"
+      - ".github/workflows/traffic-pipeline.yml"
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: traffic_analytics
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d traffic_analytics"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: traffic_analytics
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ci_test_password
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-pipeline.txt
+
+      - name: Install pipeline dependencies
+        run: python -m pip install -r requirements-pipeline.txt
+
+      - name: Download official datasets
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/traffic-data"
+
+          curl -fL --retry 3 \
+            "https://data.dft.gov.uk/road-accidents-safety-data/dft-road-casualty-statistics-collision-last-5-years.csv" \
+            -o "$RUNNER_TEMP/traffic-data/collisions.csv"
+
+          curl -fL --retry 3 \
+            "https://data.dft.gov.uk/road-accidents-safety-data/dft-road-casualty-statistics-vehicle-last-5-years.csv" \
+            -o "$RUNNER_TEMP/traffic-data/vehicles.csv"
+
+          curl -fL --retry 3 \
+            "https://data.dft.gov.uk/road-accidents-safety-data/dft-road-casualty-statistics-casualty-last-5-years.csv" \
+            -o "$RUNNER_TEMP/traffic-data/casualties.csv"
+
+      - name: Ingest collisions
+        env:
+          COLLISIONS_SOURCE_FILE: ${{ runner.temp }}/traffic-data/collisions.csv
+        run: python src/ingestion/accident_ingestion.py
+
+      - name: Ingest vehicles
+        env:
+          VEHICLES_SOURCE_FILE: ${{ runner.temp }}/traffic-data/vehicles.csv
+        run: python src/ingestion/vehicle_ingestion.py
+
+      - name: Ingest casualties
+        env:
+          CASUALTIES_SOURCE_FILE: ${{ runner.temp }}/traffic-data/casualties.csv
+        run: python src/ingestion/casualty_ingestion.py
+
+      - name: Clean datasets
+        run: |
+          python src/transformation/clean_accidents.py
+          python src/transformation/clean_vehicles.py
+          python src/transformation/clean_casualties.py
+
+      - name: Validate data quality
+        run: python -m src.validation.run_validation
+
+      - name: Initialize temporary database
+        working-directory: src/database
+        run: python initialize_database.py
+
+      - name: Load cleaned data
+        working-directory: src/database
+        run: python load_cleaned_data.py
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Run SQL analytics
+        env:
+          PGPASSWORD: ci_test_password
+        run: |
+          psql -v ON_ERROR_STOP=1 \
+            -h localhost \
+            -p "$POSTGRES_PORT" \
+            -U "$POSTGRES_USER" \
+            -d "$POSTGRES_DB" \
+            -f sql/analytics/severity_analytics.sql
+
+      - name: Save pipeline reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traffic-pipeline-reports
+          if-no-files-found: warn
+          path: |
+            reports/
+            logs/
+            data/raw/metadata/
+            data/rejected/
