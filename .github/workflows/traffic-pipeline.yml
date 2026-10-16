@@ -59,19 +59,22 @@ jobs:
 
           curl -fL --retry 3 \
             "https://data.dft.gov.uk/road-accidents-safety-data/dft-road-casualty-statistics-collision-last-5-years.csv" \
-            -o "$RUNNER_TEMP/traffic-data/collisions.csv"
+            -o "$RUNNER_TEMP/traffic-data/dft-road-casualty-statistics-collision-last-5-years.csv"
 
           curl -fL --retry 3 \
             "https://data.dft.gov.uk/road-accidents-safety-data/dft-road-casualty-statistics-vehicle-last-5-years.csv" \
-            -o "$RUNNER_TEMP/traffic-data/vehicles.csv"
+            -o "$RUNNER_TEMP/traffic-data/dft-road-casualty-statistics-vehicle-last-5-years.csv"
 
           curl -fL --retry 3 \
             "https://data.dft.gov.uk/road-accidents-safety-data/dft-road-casualty-statistics-casualty-last-5-years.csv" \
-            -o "$RUNNER_TEMP/traffic-data/casualties.csv"
+            -o "$RUNNER_TEMP/traffic-data/dft-road-casualty-statistics-casualty-last-5-years.csv"
+
+          echo "Downloaded files:"
+          ls -lh "$RUNNER_TEMP/traffic-data"
 
       - name: Ingest collisions
         env:
-          COLLISIONS_SOURCE_FILE: ${{ runner.temp }}/traffic-data/collisions.csv
+          COLLISIONS_SOURCE_FILE: ${{ runner.temp }}/traffic-data/dft-road-casualty-statistics-collision-last-5-years.csv
         run: python src/ingestion/accident_ingestion.py
 
       - name: Debug vehicle ingestion imports
@@ -94,12 +97,12 @@ jobs:
 
       - name: Ingest vehicles
         env:
-          VEHICLES_SOURCE_FILE: ${{ runner.temp }}/traffic-data/vehicles.csv
+          VEHICLES_SOURCE_FILE: ${{ runner.temp }}/traffic-data/dft-road-casualty-statistics-vehicle-last-5-years.csv
         run: python src/ingestion/vehicle_ingestion.py
 
       - name: Ingest casualties
         env:
-          CASUALTIES_SOURCE_FILE: ${{ runner.temp }}/traffic-data/casualties.csv
+          CASUALTIES_SOURCE_FILE: ${{ runner.temp }}/traffic-data/dft-road-casualty-statistics-casualty-last-5-years.csv
         run: python src/ingestion/casualty_ingestion.py
 
       - name: Clean datasets
